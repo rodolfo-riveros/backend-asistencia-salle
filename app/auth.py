@@ -3,16 +3,17 @@ from __future__ import annotations
 from typing import Annotated
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from pydantic import BaseModel
 import httpx
+import jwt as pyjwt
+from jwt import PyJWKClient
 
 from app.config import get_settings
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
-# Cache de claves públicas de Supabase
-_jwks_cache: dict | None = None
+# Cache del cliente JWKS
+_jwks_client: PyJWKClient | None = None
 
 
 class TokenPayload(BaseModel):
@@ -22,50 +23,26 @@ class TokenPayload(BaseModel):
     user_metadata: dict = {}
 
 
-def _get_supabase_jwks() -> dict:
-    global _jwks_cache
-    if _jwks_cache is None:
+def _get_jwks_client() -> PyJWKClient:
+    global _jwks_client
+    if _jwks_client is None:
         settings = get_settings()
-        url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
-        response = httpx.get(url, timeout=10)
-        response.raise_for_status()
-        _jwks_cache = response.json()
-    return _jwks_cache
+        jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
+        _jwks_client = PyJWKClient(jwks_url, cache_keys=True)
+    return _jwks_client
 
 
 def _decode_supabase_jwt(token: str) -> TokenPayload:
-    settings = get_settings()
     try:
-        unverified_header = jwt.get_unverified_header(token)
-        alg = unverified_header.get("alg", "HS256")
+        client = _get_jwks_client()
+        signing_key = client.get_signing_key_from_jwt(token)
 
-        if alg == "HS256":
-            payload = jwt.decode(
-                token,
-                settings.supabase_jwt_secret,
-                algorithms=["HS256"],
-                options={"verify_aud": False},
-            )
-        else:
-            # ES256 — validar con clave pública JWKS
-            jwks = _get_supabase_jwks()
-            kid = unverified_header.get("kid")
-            public_key = None
-            for key in jwks.get("keys", []):
-                if key.get("kid") == kid:
-                    public_key = key
-                    break
-            if not public_key:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Clave pública no encontrada para validar el token",
-                )
-            payload = jwt.decode(
-                token,
-                public_key,
-                algorithms=["ES256"],
-                options={"verify_aud": False},
-            )
+        payload = pyjwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["ES256", "HS256"],
+            options={"verify_aud": False},
+        )
 
         metadata = payload.get("user_metadata", {})
         return TokenPayload(
@@ -74,14 +51,24 @@ def _decode_supabase_jwt(token: str) -> TokenPayload:
             role=metadata.get("role"),
             user_metadata=metadata,
         )
-    except HTTPException:
-        raise
-    except JWTError as exc:
+    except pyjwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido o expirado",
+            detail="Token expirado",
             headers={"WWW-Authenticate": "Bearer"},
-        ) from exc
+        )
+    except pyjwt.InvalidTokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token inválido: {str(exc)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Error al validar token: {str(exc)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 # ── Dependencias ──────────────────────────────────────────────
