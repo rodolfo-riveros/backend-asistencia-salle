@@ -1,0 +1,32 @@
+# --- Entorno Virtual ---
+# Ignora la carpeta venv que aparece en tu estructura
+venv/
+env/
+.venv/
+
+# --- Variables de Entorno (SEGURIDAD) ---
+# Ignora los archivos donde guardas las llaves de Supabase
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- Python ---
+# Ignora las carpetas de caché que se ven en tu captura
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- IDEs y Editores ---
+# Ignora configuraciones de VS Code o PyCharm
+.vscode/
+.idea/
+
+# --- Archivos del Sistema ---
+.DS_Store
+Thumbs.db
