@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
 
     # CORS - Asegúrate de que en el .env diga ALLOWED_ORIGINS
-    allowed_origins: str = "http://localhost:3000,http://localhost:9002"
+    allowed_origins: str = "*"
 
     @property
     def origins_list(self) -> list[str]:
