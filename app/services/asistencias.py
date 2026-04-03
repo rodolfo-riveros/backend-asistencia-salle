@@ -252,6 +252,7 @@ def reporte_por_unidad(
     try:
         query = db.table("asistencias").select("""
             id,
+            alumno_id,
             fecha,
             estado,
             observacion,
