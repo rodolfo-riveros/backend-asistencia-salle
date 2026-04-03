@@ -38,7 +38,7 @@ class AsignacionDetalle(AsignacionOut):
     unidad_nombre:  str | None = None
     programa_nombre: str | None = None
     semestre: str | None = None
-    periodo_nombre: str | None = None  # Nombre del periodo académico
+    periodo_nombre: str | None = None
 
 
 # ── Asistencias ───────────────────────────────────────────────
@@ -53,6 +53,7 @@ class EstadoAsistencia(str, Enum):
 class AsistenciaBase(BaseModel):
     alumno_id:   UUID
     unidad_id:   UUID
+    periodo_id:  UUID  # ← AGREGADO
     fecha:       date = Field(default_factory=date.today)
     estado:      EstadoAsistencia
     observacion: str | None = Field(None, max_length=500)
@@ -65,15 +66,11 @@ class AsistenciaCreate(AsistenciaBase):
 class AsistenciaUpsert(BaseModel):
     """Para registrar varios alumnos en una sola llamada (pase de lista)."""
     unidad_id:   UUID
+    periodo_id:  UUID  # ← AGREGADO - CAMPO CRÍTICO
     fecha:       date = Field(default_factory=date.today)
     registros: list[dict] = Field(
         ...,
         description="Lista de {alumno_id, estado, observacion?}",
-        examples=[[
-            {"alumno_id": "uuid-1", "estado": "P"},
-            {"alumno_id": "uuid-2", "estado": "T", "observacion": "Llegó 10 min tarde"},
-            {"alumno_id": "uuid-3", "estado": "F"},
-        ]],
     )
 
 

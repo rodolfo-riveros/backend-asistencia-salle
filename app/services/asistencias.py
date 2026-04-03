@@ -42,7 +42,6 @@ def list_asignaciones(
 ) -> list[AsignacionDetalle]:
     """Lista asignaciones con filtros opcionales"""
     try:
-        # Construir la consulta base con joins
         query = db.table(ASIG_TABLE).select("""
             id,
             docente_id,
@@ -57,7 +56,6 @@ def list_asignaciones(
             periodos_academicos (nombre)
         """)
         
-        # Aplicar filtros
         if docente_id:
             query = query.eq("docente_id", docente_id)
         
@@ -65,14 +63,12 @@ def list_asignaciones(
         
         result = []
         for r in res.data:
-            # Filtrar por nombre de periodo si se especificó
             periodo_data = r.get("periodos_academicos", {}) or {}
             periodo_nombre_db = periodo_data.get("nombre")
             
             if periodo_nombre and periodo_nombre_db != periodo_nombre:
                 continue
             
-            # Extraer datos relacionados
             docente_nombre = r.get("docentes", {}).get("nombre") if r.get("docentes") else None
             unidad_data = r.get("unidades_didacticas", {}) or {}
             
@@ -148,12 +144,9 @@ def get_asignacion(db: Client, id: str) -> AsignacionDetalle:
 def delete_asignacion(db: Client, id: str) -> None:
     """Elimina una asignación por ID"""
     try:
-        # Verificar si existen asistencias relacionadas
-        # Primero obtenemos la unidad_id de la asignación
         asignacion = db.table(ASIG_TABLE).select("unidad_id").eq("id", id).single().execute()
         
         if asignacion.data:
-            # Verificar si hay asistencias para esa unidad
             asistencias = db.table(ASIST_TABLE).select("id").eq("unidad_id", asignacion.data["unidad_id"]).execute()
             if asistencias.data:
                 raise bad_request("No se puede eliminar la asignación porque tiene registros de asistencia")
@@ -166,7 +159,7 @@ def delete_asignacion(db: Client, id: str) -> None:
 
 
 # ══════════════════════════════════════════════════════════════
-# ASISTENCIAS
+# ASISTENCIAS - CORREGIDO
 # ══════════════════════════════════════════════════════════════
 
 def registrar_asistencia_bulk(
@@ -189,14 +182,18 @@ def registrar_asistencia_bulk(
             raise bad_request(f"Registro inválido: {item}. Requiere alumno_id y estado.")
         if estado not in [e.value for e in EstadoAsistencia]:
             raise bad_request(f"Estado '{estado}' no válido. Use: P, F, J, T")
+        
+        # 🔴 IMPORTANTE: Incluir periodo_id en cada registro
         rows.append({
             "alumno_id":   alumno_id,
             "unidad_id":   str(data.unidad_id),
+            "periodo_id":  str(data.periodo_id),  # ← LÍNEA CRÍTICA AGREGADA
             "docente_id":  docente_id,
             "fecha":       data.fecha.isoformat(),
             "estado":      estado,
             "observacion": item.get("observacion"),
         })
+    
     try:
         res = (
             db.table(ASIST_TABLE)
@@ -205,6 +202,7 @@ def registrar_asistencia_bulk(
         )
         return [AsistenciaOut(**r) for r in res.data]
     except Exception as exc:
+        # Esto te dirá exactamente qué columna falló en Supabase
         raise supabase_error(exc)
 
 
