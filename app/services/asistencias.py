@@ -22,13 +22,16 @@ def list_asignaciones(
     periodo: str | None = None,
 ) -> list[AsignacionDetalle]:
     try:
+        # Nota: Usamos 'periodo_academico' (singular) que es la columna real en SQL
         q = db.table(ASIG_TABLE).select(
             "*, docentes(nombre), unidades_didacticas(nombre, semestre, programas_estudio(nombre))"
-        ).order("periodo_academicos", desc=True)
+        ).order("periodo_academico", desc=True)
+        
         if docente_id:
             q = q.eq("docente_id", docente_id)
         if periodo:
-            q = q.eq("periodo_academicos", periodo)
+            q = q.eq("periodo_academico", periodo)
+            
         res = q.execute()
         return [_map_asignacion(r) for r in res.data]
     except Exception as exc:
@@ -55,13 +58,22 @@ def get_asignacion(db: Client, id: str) -> AsignacionDetalle:
 
 def create_asignacion(db: Client, data: AsignacionCreate) -> AsignacionOut:
     try:
+        # MAPEO CRÍTICO: 
+        # Llave (BD): "periodo_academico" (singular)
+        # Valor (Pydantic): data.periodo_academicos (plural)
         payload = {
             "docente_id":        str(data.docente_id),
             "unidad_id":         str(data.unidad_id),
-            "periodo_academicos": data.periodo_academicos,
+            "periodo_academico": data.periodo_academicos, 
         }
         res = db.table(ASIG_TABLE).insert(payload).execute()
-        return AsignacionOut(**res.data[0])
+        
+        # Al retornar, renombramos para que Pydantic no falle al validar AsignacionOut
+        row = res.data[0]
+        if "periodo_academico" in row:
+            row["periodo_academicos"] = row.pop("periodo_academico")
+            
+        return AsignacionOut(**row)
     except Exception as exc:
         raise supabase_error(exc)
 
@@ -78,9 +90,14 @@ def delete_asignacion(db: Client, id: str) -> None:
 def _map_asignacion(r: dict) -> AsignacionDetalle:
     ud = r.get("unidades_didacticas") or {}
     pe = ud.get("programas_estudio") or {}
+    
+    # Renombramos el campo de la BD al nombre del esquema Pydantic
+    periodo_val = r.get("periodo_academicos") or r.get("periodo_academico")
+    
     return AsignacionDetalle(
         **{k: v for k, v in r.items()
-           if k not in ("docentes", "unidades_didacticas")},
+           if k not in ("docentes", "unidades_didacticas", "periodo_academico", "periodo_academicos")},
+        periodo_academicos = periodo_val,
         docente_nombre  = (r.get("docentes") or {}).get("nombre"),
         unidad_nombre   = ud.get("nombre"),
         semestre        = ud.get("semestre"),
