@@ -24,11 +24,11 @@ def list_asignaciones(
     try:
         q = db.table(ASIG_TABLE).select(
             "*, docentes(nombre), unidades_didacticas(nombre, semestre, programas_estudio(nombre))"
-        ).order("periodo_academico", desc=True)
+        ).order("periodo_academicos", desc=True)
         if docente_id:
             q = q.eq("docente_id", docente_id)
         if periodo:
-            q = q.eq("periodo_academico", periodo)
+            q = q.eq("periodo_academicos", periodo)
         res = q.execute()
         return [_map_asignacion(r) for r in res.data]
     except Exception as exc:
@@ -58,7 +58,7 @@ def create_asignacion(db: Client, data: AsignacionCreate) -> AsignacionOut:
         payload = {
             "docente_id":        str(data.docente_id),
             "unidad_id":         str(data.unidad_id),
-            "periodo_academico": data.periodo_academico,
+            "periodo_academicos": data.periodo_academicos,
         }
         res = db.table(ASIG_TABLE).insert(payload).execute()
         return AsignacionOut(**res.data[0])
