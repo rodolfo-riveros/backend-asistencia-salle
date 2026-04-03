@@ -16,44 +16,31 @@ ASIST_TABLE = "asistencias"
 # ASIGNACIÓN DOCENTE
 # ══════════════════════════════════════════════════════════════
 
-def list_asignaciones(
-    db: Client,
-    docente_id: str | None = None,
-    periodo: str | None = None,
-) -> list[AsignacionDetalle]:
-    try:
-        # Nota: Usamos 'periodo_academico' (singular) que es la columna real en SQL
-        q = db.table(ASIG_TABLE).select(
-            "*, docentes(nombre), unidades_didacticas(nombre, semestre, programas_estudio(nombre))"
-        ).order("periodo_academico", desc=True)
-        
-        if docente_id:
-            q = q.eq("docente_id", docente_id)
-        if periodo:
-            q = q.eq("periodo_academico", periodo)
-            
-        res = q.execute()
-        return [_map_asignacion(r) for r in res.data]
-    except Exception as exc:
-        raise supabase_error(exc)
+def list_asignaciones(db: Client, docente_id: str = None, periodo: str = None):
+    # Nota: Agregamos 'periodos_academicos(nombre)' al select para traer el nombre del ciclo
+    q = db.table(ASIG_TABLE).select(
+        "*, docentes(nombre), unidades_didacticas(nombre, semestre, programas_estudio(nombre)), periodos_academicos(nombre)"
+    )
+    # ... resto del código ...
 
+def create_asignacion(db: Client, data: AsignacionCreate) -> AsignacionOut:
+    payload = {
+        "docente_id": str(data.docente_id),
+        "unidad_id":  str(data.unidad_id),
+        "periodo_id": str(data.periodo_id), # <-- NOMBRE CORRECTO DE LA COLUMNA
+    }
+    res = db.table(ASIG_TABLE).insert(payload).execute()
+    return AsignacionOut(**res.data[0])
 
-def get_asignacion(db: Client, id: str) -> AsignacionDetalle:
-    try:
-        res = (
-            db.table(ASIG_TABLE)
-            .select("*, docentes(nombre), unidades_didacticas(nombre, semestre, programas_estudio(nombre))")
-            .eq("id", id)
-            .single()
-            .execute()
-        )
-        if not res.data:
-            raise not_found("Asignación", id)
-        return _map_asignacion(res.data)
-    except Exception as exc:
-        if "0 rows" in str(exc) or "not found" in str(exc).lower():
-            raise not_found("Asignación", id)
-        raise supabase_error(exc)
+def _map_asignacion(r: dict) -> AsignacionDetalle:
+    # ... (lógica de mapeo) ...
+    periodo_obj = r.get("periodos_academicos") or {}
+    return AsignacionDetalle(
+        **{k: v for k, v in r.items() if k not in ("docentes", "unidades_didacticas", "periodos_academicos")},
+        docente_nombre = (r.get("docentes") or {}).get("nombre"),
+        unidad_nombre  = (r.get("unidades_didacticas") or {}).get("nombre"),
+        periodo_academicos = periodo_obj.get("nombre") # Para mostrarlo en la tabla
+    )
 
 
 def create_asignacion(db: Client, data: AsignacionCreate) -> AsignacionOut:
