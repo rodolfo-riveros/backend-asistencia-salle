@@ -91,6 +91,7 @@ class AsistenciaOut(AsistenciaBase):
 
 class AsistenciaDetalle(BaseModel):
     id:              UUID
+    alumno_id:       UUID
     fecha:           date
     estado:          str
     observacion:     str | None

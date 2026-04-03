@@ -287,6 +287,7 @@ def reporte_por_unidad(
             
             result.append(AsistenciaDetalle(
                 id=r["id"],
+                alumno_id=r["alumno_id"],
                 fecha=date.fromisoformat(r["fecha"]),
                 estado=r["estado"],
                 observacion=r.get("observacion"),
