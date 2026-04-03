@@ -7,9 +7,9 @@ from enum import Enum
 # ── Asignación Docente ────────────────────────────────────────
 
 class AsignacionBase(BaseModel):
-    docente_id:        UUID
-    unidad_id:         UUID
-    periodo_academicos: UUID
+    docente_id: UUID
+    unidad_id:  UUID
+    periodo_id: UUID 
 
 
 class AsignacionCreate(AsignacionBase):
@@ -17,11 +17,16 @@ class AsignacionCreate(AsignacionBase):
 
 
 class AsignacionUpdate(BaseModel):
-    periodo_academicos: str | None = None
+    docente_id: UUID | None = None
+    unidad_id: UUID | None = None
+    periodo_id: UUID | None = None
 
 
-class AsignacionOut(AsignacionBase):
-    id: UUID
+class AsignacionOut(BaseModel):
+    id:         UUID
+    docente_id: UUID
+    unidad_id:  UUID
+    periodo_id: UUID
 
     class Config:
         from_attributes = True
@@ -33,6 +38,7 @@ class AsignacionDetalle(AsignacionOut):
     unidad_nombre:  str | None = None
     programa_nombre: str | None = None
     semestre: str | None = None
+    periodo_nombre: str | None = None  # Nombre del periodo académico
 
 
 # ── Asistencias ───────────────────────────────────────────────

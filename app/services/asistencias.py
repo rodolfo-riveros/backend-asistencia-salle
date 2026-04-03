@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import date
+from typing import Any
 from supabase import Client
 from app.schemas import (
     AsignacionCreate, AsignacionUpdate, AsignacionOut, AsignacionDetalle,
@@ -16,80 +17,152 @@ ASIST_TABLE = "asistencias"
 # ASIGNACIÓN DOCENTE
 # ══════════════════════════════════════════════════════════════
 
-def list_asignaciones(db: Client, docente_id: str = None, periodo: str = None):
-    # Nota: Agregamos 'periodos_academicos(nombre)' al select para traer el nombre del ciclo
-    q = db.table(ASIG_TABLE).select(
-        "*, docentes(nombre), unidades_didacticas(nombre, semestre, programas_estudio(nombre)), periodos_academicos(nombre)"
-    )
-    # ... resto del código ...
-
 def create_asignacion(db: Client, data: AsignacionCreate) -> AsignacionOut:
-    payload = {
-        "docente_id": str(data.docente_id),
-        "unidad_id":  str(data.unidad_id),
-        "periodo_id": str(data.periodo_id), # <-- NOMBRE CORRECTO DE LA COLUMNA
-    }
-    res = db.table(ASIG_TABLE).insert(payload).execute()
-    return AsignacionOut(**res.data[0])
-
-def _map_asignacion(r: dict) -> AsignacionDetalle:
-    # ... (lógica de mapeo) ...
-    periodo_obj = r.get("periodos_academicos") or {}
-    return AsignacionDetalle(
-        **{k: v for k, v in r.items() if k not in ("docentes", "unidades_didacticas", "periodos_academicos")},
-        docente_nombre = (r.get("docentes") or {}).get("nombre"),
-        unidad_nombre  = (r.get("unidades_didacticas") or {}).get("nombre"),
-        periodo_academicos = periodo_obj.get("nombre") # Para mostrarlo en la tabla
-    )
-
-
-def create_asignacion(db: Client, data: AsignacionCreate) -> AsignacionOut:
+    """Crea una nueva asignación docente-unidad-periodo"""
     try:
-        # MAPEO CRÍTICO: 
-        # Llave (BD): "periodo_academico" (singular)
-        # Valor (Pydantic): data.periodo_academicos (plural)
         payload = {
-            "docente_id":        str(data.docente_id),
-            "unidad_id":         str(data.unidad_id),
-            "periodo_academico": data.periodo_academicos, 
+            "docente_id": str(data.docente_id),
+            "unidad_id":  str(data.unidad_id),
+            "periodo_id": str(data.periodo_id),
         }
         res = db.table(ASIG_TABLE).insert(payload).execute()
         
-        # Al retornar, renombramos para que Pydantic no falle al validar AsignacionOut
-        row = res.data[0]
-        if "periodo_academico" in row:
-            row["periodo_academicos"] = row.pop("periodo_academico")
+        if not res.data:
+            raise Exception("No se pudo crear la asignación")
             
-        return AsignacionOut(**row)
+        return AsignacionOut(**res.data[0])
     except Exception as exc:
         raise supabase_error(exc)
 
 
-def delete_asignacion(db: Client, id: str) -> None:
+def list_asignaciones(
+    db: Client, 
+    docente_id: str | None = None, 
+    periodo_nombre: str | None = None
+) -> list[AsignacionDetalle]:
+    """Lista asignaciones con filtros opcionales"""
     try:
+        # Construir la consulta base con joins
+        query = db.table(ASIG_TABLE).select("""
+            id,
+            docente_id,
+            unidad_id,
+            periodo_id,
+            docentes (nombre),
+            unidades_didacticas (
+                nombre,
+                semestre,
+                programas_estudio (nombre)
+            ),
+            periodos_academicos (nombre)
+        """)
+        
+        # Aplicar filtros
+        if docente_id:
+            query = query.eq("docente_id", docente_id)
+        
+        res = query.execute()
+        
+        result = []
+        for r in res.data:
+            # Filtrar por nombre de periodo si se especificó
+            periodo_data = r.get("periodos_academicos", {}) or {}
+            periodo_nombre_db = periodo_data.get("nombre")
+            
+            if periodo_nombre and periodo_nombre_db != periodo_nombre:
+                continue
+            
+            # Extraer datos relacionados
+            docente_nombre = r.get("docentes", {}).get("nombre") if r.get("docentes") else None
+            unidad_data = r.get("unidades_didacticas", {}) or {}
+            
+            programa_nombre = None
+            if unidad_data.get("programas_estudio"):
+                programa_nombre = unidad_data["programas_estudio"].get("nombre")
+            
+            result.append(AsignacionDetalle(
+                id=r["id"],
+                docente_id=r["docente_id"],
+                unidad_id=r["unidad_id"],
+                periodo_id=r["periodo_id"],
+                docente_nombre=docente_nombre,
+                unidad_nombre=unidad_data.get("nombre"),
+                semestre=str(unidad_data.get("semestre")) if unidad_data.get("semestre") else None,
+                programa_nombre=programa_nombre,
+                periodo_nombre=periodo_nombre_db
+            ))
+        
+        return result
+        
+    except Exception as exc:
+        raise supabase_error(exc)
+
+
+def get_asignacion(db: Client, id: str) -> AsignacionDetalle:
+    """Obtiene una asignación por ID con detalles"""
+    try:
+        res = db.table(ASIG_TABLE).select("""
+            id,
+            docente_id,
+            unidad_id,
+            periodo_id,
+            docentes (nombre),
+            unidades_didacticas (
+                nombre,
+                semestre,
+                programas_estudio (nombre)
+            ),
+            periodos_academicos (nombre)
+        """).eq("id", id).single().execute()
+        
+        if not res.data:
+            raise not_found("Asignación", id)
+        
+        r = res.data
+        docente_nombre = r.get("docentes", {}).get("nombre") if r.get("docentes") else None
+        unidad_data = r.get("unidades_didacticas", {}) or {}
+        periodo_data = r.get("periodos_academicos", {}) or {}
+        
+        programa_nombre = None
+        if unidad_data.get("programas_estudio"):
+            programa_nombre = unidad_data["programas_estudio"].get("nombre")
+        
+        return AsignacionDetalle(
+            id=r["id"],
+            docente_id=r["docente_id"],
+            unidad_id=r["unidad_id"],
+            periodo_id=r["periodo_id"],
+            docente_nombre=docente_nombre,
+            unidad_nombre=unidad_data.get("nombre"),
+            semestre=str(unidad_data.get("semestre")) if unidad_data.get("semestre") else None,
+            programa_nombre=programa_nombre,
+            periodo_nombre=periodo_data.get("nombre")
+        )
+        
+    except Exception as exc:
+        if "0 rows" in str(exc) or "not found" in str(exc).lower():
+            raise not_found("Asignación", id)
+        raise supabase_error(exc)
+
+
+def delete_asignacion(db: Client, id: str) -> None:
+    """Elimina una asignación por ID"""
+    try:
+        # Verificar si existen asistencias relacionadas
+        # Primero obtenemos la unidad_id de la asignación
+        asignacion = db.table(ASIG_TABLE).select("unidad_id").eq("id", id).single().execute()
+        
+        if asignacion.data:
+            # Verificar si hay asistencias para esa unidad
+            asistencias = db.table(ASIST_TABLE).select("id").eq("unidad_id", asignacion.data["unidad_id"]).execute()
+            if asistencias.data:
+                raise bad_request("No se puede eliminar la asignación porque tiene registros de asistencia")
+        
         res = db.table(ASIG_TABLE).delete().eq("id", id).execute()
         if not res.data:
             raise not_found("Asignación", id)
     except Exception as exc:
         raise supabase_error(exc)
-
-
-def _map_asignacion(r: dict) -> AsignacionDetalle:
-    ud = r.get("unidades_didacticas") or {}
-    pe = ud.get("programas_estudio") or {}
-    
-    # Renombramos el campo de la BD al nombre del esquema Pydantic
-    periodo_val = r.get("periodo_academicos") or r.get("periodo_academico")
-    
-    return AsignacionDetalle(
-        **{k: v for k, v in r.items()
-           if k not in ("docentes", "unidades_didacticas", "periodo_academico", "periodo_academicos")},
-        periodo_academicos = periodo_val,
-        docente_nombre  = (r.get("docentes") or {}).get("nombre"),
-        unidad_nombre   = ud.get("nombre"),
-        semestre        = ud.get("semestre"),
-        programa_nombre = pe.get("nombre"),
-    )
 
 
 # ══════════════════════════════════════════════════════════════
@@ -158,7 +231,7 @@ def update_asistencia(
             db.table(ASIST_TABLE)
             .update(payload)
             .eq("id", id)
-            .eq("docente_id", docente_id)   # solo el docente que lo creó
+            .eq("docente_id", docente_id)
             .execute()
         )
         if not res.data:
@@ -199,8 +272,6 @@ def resumen_por_alumno(
 
     agrupado: dict[str, dict] = {}
     for r in registros:
-        key = str(r.id)  # usamos el id del alumno via el detalle
-        # agrupamos por (alumno, dni)
         clave = f"{r.alumno}|{r.dni}"
         if clave not in agrupado:
             agrupado[clave] = {
