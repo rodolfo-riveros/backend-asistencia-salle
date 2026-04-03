@@ -53,7 +53,7 @@ class EstadoAsistencia(str, Enum):
 class AsistenciaBase(BaseModel):
     alumno_id:   UUID
     unidad_id:   UUID
-    periodo_id:  UUID  # ← AGREGADO
+    periodo_id:  UUID
     fecha:       date = Field(default_factory=date.today)
     estado:      EstadoAsistencia
     observacion: str | None = Field(None, max_length=500)
@@ -66,7 +66,7 @@ class AsistenciaCreate(AsistenciaBase):
 class AsistenciaUpsert(BaseModel):
     """Para registrar varios alumnos en una sola llamada (pase de lista)."""
     unidad_id:   UUID
-    periodo_id:  UUID  # ← AGREGADO - CAMPO CRÍTICO
+    periodo_id:  UUID
     fecha:       date = Field(default_factory=date.today)
     registros: list[dict] = Field(
         ...,

@@ -26,7 +26,7 @@ def pase_de_lista(data: AsistenciaUpsert, docente: CurrentDocente):
 
 @router.patch("/{id}", response_model=AsistenciaOut)
 def corregir_asistencia(id: str, data: AsistenciaUpdate, docente: CurrentDocente):
-    """Corrige el estado de un registro individual. Solo el docente que lo creó puede editarlo."""
+    """Corrige el estado de un registro individual."""
     return svc.update_asistencia(get_client(), id, data, docente.sub)
 
 
@@ -46,6 +46,19 @@ def reporte_por_unidad(
 ):
     """Lista detallada de todas las asistencias de una unidad, con filtro de fechas opcional."""
     return svc.reporte_por_unidad(get_client(), unidad_id, fecha_inicio, fecha_fin)
+
+
+@router.get("/reporte/unidad/{unidad_id}/asistencias/{fecha}", response_model=dict)
+def get_asistencias_por_fecha(
+    unidad_id: str,
+    fecha: date,
+    _: CurrentUser,
+):
+    """
+    Obtiene las asistencias de una unidad en una fecha específica.
+    Devuelve un diccionario con alumno_id como clave.
+    """
+    return svc.get_asistencias_por_fecha(get_client(), unidad_id, fecha)
 
 
 @router.get("/reporte/resumen/{unidad_id}", response_model=list[ResumenAsistencia])

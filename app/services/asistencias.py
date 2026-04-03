@@ -159,7 +159,7 @@ def delete_asignacion(db: Client, id: str) -> None:
 
 
 # ══════════════════════════════════════════════════════════════
-# ASISTENCIAS - CORREGIDO
+# ASISTENCIAS
 # ══════════════════════════════════════════════════════════════
 
 def registrar_asistencia_bulk(
@@ -183,11 +183,10 @@ def registrar_asistencia_bulk(
         if estado not in [e.value for e in EstadoAsistencia]:
             raise bad_request(f"Estado '{estado}' no válido. Use: P, F, J, T")
         
-        # 🔴 IMPORTANTE: Incluir periodo_id en cada registro
         rows.append({
             "alumno_id":   alumno_id,
             "unidad_id":   str(data.unidad_id),
-            "periodo_id":  str(data.periodo_id),  # ← LÍNEA CRÍTICA AGREGADA
+            "periodo_id":  str(data.periodo_id),
             "docente_id":  docente_id,
             "fecha":       data.fecha.isoformat(),
             "estado":      estado,
@@ -202,7 +201,6 @@ def registrar_asistencia_bulk(
         )
         return [AsistenciaOut(**r) for r in res.data]
     except Exception as exc:
-        # Esto te dirá exactamente qué columna falló en Supabase
         raise supabase_error(exc)
 
 
@@ -247,14 +245,89 @@ def reporte_por_unidad(
     fecha_inicio: date | None = None,
     fecha_fin: date | None = None,
 ) -> list[AsistenciaDetalle]:
+    """
+    Lista detallada de todas las asistencias de una unidad.
+    Consulta directamente la tabla asistencias con joins explícitos.
+    """
     try:
-        q = db.table("v_asistencias_completas").select("*").eq("unidad_id", unidad_id)
+        query = db.table("asistencias").select("""
+            id,
+            fecha,
+            estado,
+            observacion,
+            alumnos!inner (
+                nombre,
+                dni
+            ),
+            unidades_didacticas!inner (
+                nombre,
+                semestre,
+                programas_estudio (
+                    nombre
+                )
+            ),
+            docentes!inner (
+                nombre
+            )
+        """).eq("unidad_id", unidad_id)
+        
         if fecha_inicio:
-            q = q.gte("fecha", fecha_inicio.isoformat())
+            query = query.gte("fecha", fecha_inicio.isoformat())
         if fecha_fin:
-            q = q.lte("fecha", fecha_fin.isoformat())
-        res = q.order("fecha", desc=True).order("alumno").execute()
-        return [AsistenciaDetalle(**r) for r in res.data]
+            query = query.lte("fecha", fecha_fin.isoformat())
+        
+        res = query.order("fecha", desc=True).execute()
+        
+        result = []
+        for r in res.data:
+            alumno_data = r.get("alumnos", {}) or {}
+            unidad_data = r.get("unidades_didacticas", {}) or {}
+            programa_data = unidad_data.get("programas_estudio", {}) or {}
+            docente_data = r.get("docentes", {}) or {}
+            
+            result.append(AsistenciaDetalle(
+                id=r["id"],
+                fecha=date.fromisoformat(r["fecha"]),
+                estado=r["estado"],
+                observacion=r.get("observacion"),
+                alumno=alumno_data.get("nombre", ""),
+                dni=alumno_data.get("dni", ""),
+                unidad=unidad_data.get("nombre", ""),
+                semestre=str(unidad_data.get("semestre", "")),
+                programa=programa_data.get("nombre", ""),
+                docente=docente_data.get("nombre", ""),
+            ))
+        
+        return result
+        
+    except Exception as exc:
+        raise supabase_error(exc)
+
+
+def get_asistencias_por_fecha(
+    db: Client,
+    unidad_id: str,
+    fecha: date,
+) -> dict:
+    """
+    Obtiene las asistencias de una unidad en una fecha específica,
+    devuelve un diccionario con alumno_id como clave para fácil acceso.
+    """
+    try:
+        res = db.table(ASIST_TABLE).select(
+            "alumno_id, estado, observacion, id"
+        ).eq("unidad_id", unidad_id).eq("fecha", fecha.isoformat()).execute()
+        
+        asistencias_dict = {}
+        for r in res.data:
+            asistencias_dict[r["alumno_id"]] = {
+                "estado": r["estado"],
+                "observacion": r.get("observacion"),
+                "id": r["id"]
+            }
+        
+        return asistencias_dict
+        
     except Exception as exc:
         raise supabase_error(exc)
 
