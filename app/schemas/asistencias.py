@@ -9,7 +9,7 @@ from enum import Enum
 class AsignacionBase(BaseModel):
     docente_id:        UUID
     unidad_id:         UUID
-    periodo_academico: str = Field(..., min_length=4, max_length=20, examples=["2025-I"])
+    periodo_academicos: str = Field(..., min_length=4, max_length=20, examples=["2025-I"])
 
 
 class AsignacionCreate(AsignacionBase):
@@ -17,7 +17,7 @@ class AsignacionCreate(AsignacionBase):
 
 
 class AsignacionUpdate(BaseModel):
-    periodo_academico: str | None = None
+    periodo_academicos: str | None = None
 
 
 class AsignacionOut(AsignacionBase):
