@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 import time
 
 from app.config import get_settings
-from app.routers import periodos, programas, unidades, docentes, alumnos, asignaciones, asistencias, me
+from app.routers import periodos, programas, unidades, docentes, alumnos, asignaciones, asistencias, me, evaluaciones
 
 settings = get_settings()
 
@@ -58,6 +58,7 @@ app.include_router(alumnos.router,     prefix=PREFIX)
 app.include_router(asignaciones.router, prefix=PREFIX)
 app.include_router(asistencias.router, prefix=PREFIX)
 app.include_router(me.router,          prefix=PREFIX)
+app.include_router(evaluaciones.router, prefix=PREFIX)
 
 # ── Health check ──────────────────────────────────────────────
 @app.get("/health", tags=["Health"])
