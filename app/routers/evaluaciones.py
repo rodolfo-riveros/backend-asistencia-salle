@@ -11,6 +11,7 @@ from app.schemas.evaluaciones import (
     SaveAllPayload, RegistroAuxiliarOut,
 )
 import app.services.evaluaciones as svc
+from app.services.evaluaciones import EvaluacionUpdate  # usado en iniciar-sala
 
 router = APIRouter(prefix="/evaluaciones", tags=["Evaluaciones"])
 
@@ -160,3 +161,41 @@ def get_calificacion(id: str, _: CurrentUser):
 @router.post("/save-all/", status_code=200)
 def save_all(payload: SaveAllPayload, _: CurrentDocente):
     return svc.save_all(get_client(), payload)
+
+# ── POST /evaluaciones/{id}/iniciar-sala/ ──────────────────────────────────────
+# Guarda configuracion_json (preguntas IA) + retorna datos para que el frontend
+# cree la sala en Convex automáticamente
+
+from pydantic import BaseModel as _BaseModel
+
+class IniciarSalaPayload(_BaseModel):
+    configuracion_json: dict  # GamificationConfig con questions[], criteria[], strategy
+
+
+class IniciarSalaOut(_BaseModel):
+    evaluacion_id: str
+    nombre:        str
+    tipo:          str
+    puntaje_maximo: int
+    configuracion_json: dict
+
+
+@router.post("/{id}/iniciar-sala/", response_model=IniciarSalaOut, status_code=200)
+def iniciar_sala(id: str, payload: IniciarSalaPayload, _: CurrentDocente):
+    """
+    Paso final del Wizard de gamificación:
+    1. Guarda el configuracion_json (preguntas generadas por IA + strategy) en Supabase.
+    2. Retorna los datos que el frontend necesita para llamar rooms:createRoom en Convex.
+    El frontend hace ambas cosas: llama este endpoint y luego crea la sala en Convex.
+    """
+    db = get_client()
+    updated = svc.update_evaluacion(db, id, svc.EvaluacionUpdate(
+        configuracion_json=payload.configuracion_json
+    ))
+    return IniciarSalaOut(
+        evaluacion_id=str(updated.id),
+        nombre=updated.nombre,
+        tipo=updated.tipo,
+        puntaje_maximo=updated.puntaje_maximo,
+        configuracion_json=updated.configuracion_json or {},
+    )
