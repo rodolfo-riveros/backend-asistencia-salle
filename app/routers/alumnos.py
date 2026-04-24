@@ -6,6 +6,10 @@ import app.services.alumnos as svc
 
 router = APIRouter(prefix="/alumnos", tags=["Alumnos"])
 
+@router.get("/publico/{dni}", response_model=AlumnoConPrograma, summary="Buscar alumno por DNI (sin login)")
+def buscar_alumno_publico(dni: str):
+    return svc.get_alumno_by_dni(get_client(), dni)
+
 
 @router.get("/", response_model=list[AlumnoConPrograma])
 def listar_alumnos(
