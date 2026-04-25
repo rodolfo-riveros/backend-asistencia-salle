@@ -409,14 +409,19 @@ def upsert_calificacion(db: Client, data: CalificacionCreate) -> list[Calificaci
         tipo        = eval_res.data["tipo"]
         puntaje_max = eval_res.data.get("puntaje_maximo") or 20
 
-        if data.puntaje > puntaje_max:
-            raise bad_request(f"Puntaje {data.puntaje} supera el máximo ({puntaje_max}).")
+        puntaje_recibido = float(data.puntaje)
 
-        puntaje_final = data.puntaje
-        if tipo == TipoInstrumento.QUIZZ and data.detalles_json:
+        if puntaje_recibido > puntaje_max:
+            raise bad_request(f"Puntaje {puntaje_recibido} supera el máximo ({puntaje_max}).")
+
+        puntaje_final = puntaje_recibido
+
+        # Para QUIZZ: si el frontend ya calculó la nota, la usa directo.
+        if tipo == TipoInstrumento.QUIZZ and data.detalles_json and puntaje_recibido == 0:
             aciertos        = data.detalles_json.get("aciertos", 0)
             total_preguntas = data.detalles_json.get("total_preguntas", 1)
-            puntaje_final   = round((aciertos / max(total_preguntas, 1)) * puntaje_max, 2)
+            if aciertos > 0:
+                puntaje_final = round((aciertos / max(total_preguntas, 1)) * puntaje_max, 2)
 
         alumnos_ids = [str(data.alumno_id)]
         if tipo == TipoInstrumento.GRUPAL:

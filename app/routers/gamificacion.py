@@ -129,8 +129,9 @@ def get_sesion_activa(evaluacion_id: str, _: CurrentDocente):
             .limit(1)
             .execute()
         )
+        # ANTES lanzaba not_found (404 → 500), ahora retorna null limpiamente
         if not res.data:
-            raise not_found("Sesión activa", evaluacion_id)
+            return None   # El frontend ya maneja el caso de sin sesión activa
         return res.data[0]
     except Exception as exc:
         raise supabase_error(exc)
