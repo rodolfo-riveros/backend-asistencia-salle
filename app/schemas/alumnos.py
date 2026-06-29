@@ -20,7 +20,7 @@ class AlumnoUpdate(BaseModel):
     programa_id: UUID | None         = None
     semestre:    SemestreEnum | None = None
     dni:         str | None          = Field(None, min_length=8, max_length=15)
-    str | None          = Field(None, min_length=1, max_length=10)  # ← nuevo
+    seccion:     str | None          = Field(None, min_length=1, max_length=10)
 
 
 class AlumnoOut(AlumnoBase):
