@@ -5,6 +5,24 @@ from app.exceptions import not_found, supabase_error
 TABLE = "alumnos"
 
 
+def _periodo_activo(db: Client) -> str | None:
+    res = db.table("periodos_academicos").select("id").eq("es_activo", True).limit(1).execute()
+    return res.data[0]["id"] if res.data else None
+
+
+def _fetch_alumno_con_programa(db: Client, q) -> list[AlumnoConPrograma]:
+    res = q.execute()
+    results = []
+    for r in res.data:
+        row = {k: v for k, v in r.items() if k != "programas_estudio"}
+        row.setdefault("seccion", "U")
+        results.append(AlumnoConPrograma(
+            **row,
+            programa_nombre=r.get("programas_estudio", {}).get("nombre"),
+        ))
+    return results
+
+
 def list_alumnos(
     db: Client,
     programa_id: str | None = None,
@@ -13,7 +31,8 @@ def list_alumnos(
     seccion: str | None = None,
 ) -> list[AlumnoConPrograma]:
     try:
-        q = db.table(TABLE).select(
+        # Usar la vista que incluye ultima seccion desde matriculas
+        q = db.table("v_alumnos_listado").select(
             "*, programas_estudio(nombre)"
         ).order("nombre")
         if programa_id:
@@ -24,34 +43,21 @@ def list_alumnos(
             q = q.eq("seccion", seccion)
         if search:
             q = q.ilike("nombre", f"%{search}%")
-        res = q.execute()
-        return [
-            AlumnoConPrograma(
-                **{k: v for k, v in r.items() if k != "programas_estudio"},
-                programa_nombre=r.get("programas_estudio", {}).get("nombre"),
-            )
-            for r in res.data
-        ]
+        return _fetch_alumno_con_programa(db, q)
     except Exception as exc:
         raise supabase_error(exc)
 
 
 def get_alumno(db: Client, id: str) -> AlumnoConPrograma:
     try:
-        res = (
-            db.table(TABLE)
-            .select("*, programas_estudio(nombre)")
-            .eq("id", id)
-            .single()
-            .execute()
-        )
+        q = db.table("v_alumnos_listado").select(
+            "*, programas_estudio(nombre)"
+        ).eq("id", id).single()
+        res = q.execute()
         if not res.data:
             raise not_found("Alumno", id)
-        r = res.data
-        return AlumnoConPrograma(
-            **{k: v for k, v in r.items() if k != "programas_estudio"},
-            programa_nombre=r.get("programas_estudio", {}).get("nombre"),
-        )
+        rows = _fetch_alumno_con_programa(db, db.table("v_alumnos_listado").select("*, programas_estudio(nombre)").eq("id", id))
+        return rows[0]
     except Exception as exc:
         if "0 rows" in str(exc) or "not found" in str(exc).lower():
             raise not_found("Alumno", id)
@@ -60,20 +66,14 @@ def get_alumno(db: Client, id: str) -> AlumnoConPrograma:
 
 def get_alumno_by_dni(db: Client, dni: str) -> AlumnoConPrograma:
     try:
-        res = (
-            db.table(TABLE)
-            .select("*, programas_estudio(nombre)")
-            .eq("dni", dni)
-            .single()
-            .execute()
-        )
+        q = db.table("v_alumnos_listado").select(
+            "*, programas_estudio(nombre)"
+        ).eq("dni", dni).single()
+        res = q.execute()
         if not res.data:
             raise not_found("Alumno", f"DNI {dni}")
-        r = res.data
-        return AlumnoConPrograma(
-            **{k: v for k, v in r.items() if k != "programas_estudio"},
-            programa_nombre=r.get("programas_estudio", {}).get("nombre"),
-        )
+        rows = _fetch_alumno_con_programa(db, db.table("v_alumnos_listado").select("*, programas_estudio(nombre)").eq("dni", dni))
+        return rows[0]
     except Exception as exc:
         if "0 rows" in str(exc) or "not found" in str(exc).lower():
             raise not_found("Alumno", f"DNI {dni}")
@@ -82,10 +82,33 @@ def get_alumno_by_dni(db: Client, dni: str) -> AlumnoConPrograma:
 
 def create_alumno(db: Client, data: AlumnoCreate) -> AlumnoOut:
     try:
-        payload = data.model_dump()
-        payload["programa_id"] = str(payload["programa_id"])
-        res = db.table(TABLE).insert(payload).execute()
-        return AlumnoOut(**res.data[0])
+        seccion = data.seccion
+
+        # 1a. Verificar si ya existe por DNI
+        existing = db.table(TABLE).select("id").eq("dni", data.dni).limit(1).execute()
+        if existing.data:
+            alumno_id = existing.data[0]["id"]
+        else:
+            # 1b. Crear alumno en el padron maestro (sin seccion)
+            payload = data.model_dump(exclude={"seccion"})
+            payload["programa_id"] = str(payload["programa_id"])
+            res = db.table(TABLE).insert(payload).execute()
+            alumno_id = res.data[0]["id"]
+
+        # 2. Crear matricula con la seccion
+        periodo_id = _periodo_activo(db)
+        matricula_payload = {
+            "alumno_id": alumno_id,
+            "periodo_id": periodo_id,
+            "programa_id": str(data.programa_id),
+            "semestre": data.semestre.value,
+            "seccion": seccion,
+        }
+        db.table("matriculas").insert(matricula_payload).execute()
+
+        # Retornar el alumno creado/existente
+        out = db.table(TABLE).select("*").eq("id", alumno_id).single().execute()
+        return AlumnoOut(**out.data)
     except Exception as exc:
         raise supabase_error(exc)
 
@@ -117,7 +140,7 @@ def delete_alumno(db: Client, id: str) -> None:
 def list_alumnos_por_unidad(
     db: Client,
     unidad_id: str,
-    seccion: str | None = None,                # ← nuevo
+    seccion: str | None = None,
 ) -> list[AlumnoConPrograma]:
     try:
         q = (
@@ -125,7 +148,7 @@ def list_alumnos_por_unidad(
             .select("alumno_id, alumno_nombre, dni, semestre, programa_id, programa_nombre, seccion")
             .eq("unidad_id", unidad_id)
         )
-        if seccion:                            # ← nuevo
+        if seccion:
             q = q.eq("seccion", seccion)
         res = q.order("alumno_nombre").execute()
         return [
@@ -136,7 +159,7 @@ def list_alumnos_por_unidad(
                 semestre=r["semestre"],
                 programa_id=r["programa_id"],
                 programa_nombre=r["programa_nombre"],
-                seccion=r.get("seccion", "U"),  # ← nuevo
+                seccion=r.get("seccion", "U"),
             )
             for r in res.data
         ]

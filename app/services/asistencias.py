@@ -108,6 +108,7 @@ def get_asignacion(db: Client, id: str) -> AsignacionDetalle:
             unidades_didacticas (
                 nombre,
                 semestre,
+                seccion,
                 programas_estudio (nombre)
             ),
             periodos_academicos (nombre)
