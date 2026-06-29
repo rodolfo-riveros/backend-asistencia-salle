@@ -38,6 +38,7 @@ class AsignacionDetalle(AsignacionOut):
     unidad_nombre:  str | None = None
     programa_nombre: str | None = None
     semestre: str | None = None
+    seccion:         str | None = None
     periodo_nombre: str | None = None
 
 

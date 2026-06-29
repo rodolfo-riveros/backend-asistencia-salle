@@ -50,7 +50,8 @@ def list_asignaciones(
             docentes (nombre),
             unidades_didacticas (
                 nombre,
-                semestre,
+                semestre,                     
+                seccion,                       
                 programas_estudio (nombre)
             ),
             periodos_academicos (nombre)
@@ -84,6 +85,7 @@ def list_asignaciones(
                 docente_nombre=docente_nombre,
                 unidad_nombre=unidad_data.get("nombre"),
                 semestre=str(unidad_data.get("semestre")) if unidad_data.get("semestre") else None,
+                seccion=unidad_data.get("seccion"),
                 programa_nombre=programa_nombre,
                 periodo_nombre=periodo_nombre_db
             ))
@@ -131,6 +133,7 @@ def get_asignacion(db: Client, id: str) -> AsignacionDetalle:
             docente_nombre=docente_nombre,
             unidad_nombre=unidad_data.get("nombre"),
             semestre=str(unidad_data.get("semestre")) if unidad_data.get("semestre") else None,
+            seccion=unidad_data.get("seccion"),
             programa_nombre=programa_nombre,
             periodo_nombre=periodo_data.get("nombre")
         )
