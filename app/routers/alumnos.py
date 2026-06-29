@@ -17,8 +17,9 @@ def listar_alumnos(
     programa_id: str | None = Query(None),
     semestre:    str | None = Query(None),
     search:      str | None = Query(None, description="Buscar por nombre"),
+    seccion:     str | None = Query(None),     # ← nuevo
 ):
-    return svc.list_alumnos(get_client(), programa_id, semestre, search)
+    return svc.list_alumnos(get_client(), programa_id, semestre, search, seccion)
 
 
 @router.get("/dni/{dni}", response_model=AlumnoConPrograma)

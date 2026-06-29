@@ -8,6 +8,7 @@ class AlumnoBase(BaseModel):
     programa_id: UUID
     semestre:    SemestreEnum
     dni:         str          = Field(..., min_length=8, max_length=15, pattern=r"^\d+$")
+    seccion:     str          = Field("U", min_length=1, max_length=10)  # ← nuevo
 
 
 class AlumnoCreate(AlumnoBase):
@@ -19,6 +20,7 @@ class AlumnoUpdate(BaseModel):
     programa_id: UUID | None         = None
     semestre:    SemestreEnum | None = None
     dni:         str | None          = Field(None, min_length=8, max_length=15)
+    str | None          = Field(None, min_length=1, max_length=10)  # ← nuevo
 
 
 class AlumnoOut(AlumnoBase):

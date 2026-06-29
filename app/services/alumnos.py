@@ -10,6 +10,7 @@ def list_alumnos(
     programa_id: str | None = None,
     semestre: str | None = None,
     search: str | None = None,
+    seccion: str | None = None,
 ) -> list[AlumnoConPrograma]:
     try:
         q = db.table(TABLE).select(
@@ -19,6 +20,8 @@ def list_alumnos(
             q = q.eq("programa_id", programa_id)
         if semestre:
             q = q.eq("semestre", semestre)
+        if seccion:
+            q = q.eq("seccion", seccion)
         if search:
             q = q.ilike("nombre", f"%{search}%")
         res = q.execute()
@@ -111,19 +114,20 @@ def delete_alumno(db: Client, id: str) -> None:
         raise supabase_error(exc)
 
 
-def list_alumnos_por_unidad(db: Client, unidad_id: str) -> list[AlumnoConPrograma]:
-    """
-    Devuelve los alumnos que pertenecen al programa+semestre de la unidad.
-    Usa la vista v_alumnos_por_unidad creada en el SQL.
-    """
+def list_alumnos_por_unidad(
+    db: Client,
+    unidad_id: str,
+    seccion: str | None = None,                # ← nuevo
+) -> list[AlumnoConPrograma]:
     try:
-        res = (
+        q = (
             db.table("v_alumnos_por_unidad")
-            .select("alumno_id, alumno_nombre, dni, semestre, programa_id, programa_nombre")
+            .select("alumno_id, alumno_nombre, dni, semestre, programa_id, programa_nombre, seccion")
             .eq("unidad_id", unidad_id)
-            .order("alumno_nombre")
-            .execute()
         )
+        if seccion:                            # ← nuevo
+            q = q.eq("seccion", seccion)
+        res = q.order("alumno_nombre").execute()
         return [
             AlumnoConPrograma(
                 id=r["alumno_id"],
@@ -132,6 +136,7 @@ def list_alumnos_por_unidad(db: Client, unidad_id: str) -> list[AlumnoConProgram
                 semestre=r["semestre"],
                 programa_id=r["programa_id"],
                 programa_nombre=r["programa_nombre"],
+                seccion=r.get("seccion", "U"),  # ← nuevo
             )
             for r in res.data
         ]

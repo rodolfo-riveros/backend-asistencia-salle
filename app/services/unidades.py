@@ -9,6 +9,7 @@ def list_unidades(
     db: Client,
     programa_id: str | None = None,
     semestre: str | None = None,
+    seccion: str | None = None,
 ) -> list[UnidadConPrograma]:
     try:
         q = db.table(TABLE).select(
@@ -18,6 +19,8 @@ def list_unidades(
             q = q.eq("programa_id", programa_id)
         if semestre:
             q = q.eq("semestre", semestre)
+        if seccion:                           # ← nuevo
+            q = q.eq("seccion", seccion)
         res = q.execute()
         return [
             UnidadConPrograma(
