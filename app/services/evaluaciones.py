@@ -83,12 +83,11 @@ def get_registro_auxiliar(db: Client, unidad_id: str, periodo_id: str) -> Regist
             .select("""
                 id, nombre, tipo, peso_instrumento, puntaje_maximo,
                 configuracion_json, created_at, periodo_id, indicador_id,
-                indicadores_logro!inner (
+                indicadores_logro!left (
                     id, codigo, descripcion, peso_porcentaje, unidad_id, periodo_id
                 )
             """)
-            .eq("indicadores_logro.unidad_id", unidad_id)
-            .eq("indicadores_logro.periodo_id", periodo_id)
+            .eq("periodo_id", periodo_id)
             .order("created_at")
             .execute()
         )
@@ -99,6 +98,9 @@ def get_registro_auxiliar(db: Client, unidad_id: str, periodo_id: str) -> Regist
         for r in eval_res.data:
             ind_data = r.get("indicadores_logro") or {}
             ind_id   = ind_data.get("id")
+
+            if r.get("indicador_id") and ind_data.get("unidad_id") != unidad_id:
+                continue
             if ind_id and ind_id not in indicadores_map:
                 indicadores_map[ind_id] = IndicadorOut(
                     id=ind_id,

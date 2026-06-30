@@ -100,7 +100,7 @@ def update_indicador(id: str, data: IndicadorUpdate, _: CurrentDocente):
 
 
 @router.delete("/indicadores/{id}", status_code=204)
-def delete_indicador(id: str, _: CurrentAdmin):
+def delete_indicador(id: str, _: CurrentDocente):
     svc.delete_indicador(get_client(), id)
 
 
