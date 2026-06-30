@@ -225,8 +225,8 @@ def _check_no_calificaciones_for_indicador(db: Client, indicador_id: str) -> Non
 def create_evaluacion(db: Client, data: EvaluacionCreate) -> EvaluacionOut:
     try:
         payload = data.model_dump()
-        payload["indicador_id"] = str(payload["indicador_id"])
-        payload["periodo_id"]   = str(payload["periodo_id"])
+        payload.pop("indicador_id", None)
+        payload["periodo_id"] = str(payload["periodo_id"])
         payload["tipo"] = payload["tipo"].value if hasattr(payload["tipo"], "value") else payload["tipo"]
         res = db.table(EVAL_TABLE).insert(payload).execute()
         if not res.data:
