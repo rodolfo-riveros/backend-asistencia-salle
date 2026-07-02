@@ -77,7 +77,7 @@ class ConfigEvaluacionOut(BaseModel):
 
 
 class EvaluacionCreate(BaseModel):
-    indicador_id:       UUID | None = None
+    indicador_id:       UUID
     periodo_id:         UUID
     nombre:             str
     tipo:               TipoInstrumento = TipoInstrumento.MANUAL
