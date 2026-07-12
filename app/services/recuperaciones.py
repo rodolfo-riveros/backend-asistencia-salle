@@ -147,6 +147,7 @@ def list_evaluaciones(db: Client, matricula_id: str) -> list[RecEvaluacionOut]:
 def create_evaluacion(db: Client, data: RecEvaluacionCreate) -> RecEvaluacionOut:
     try:
         payload = data.model_dump()
+        payload["fecha"] = str(payload["fecha"])
         res = db.table(EVAL_TABLE).insert(payload).execute()
         # Update matricula estado based on average
         _actualizar_estado_matricula(db, data.matricula_id)
