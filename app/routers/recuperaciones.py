@@ -97,6 +97,12 @@ def guardar_quiz(data: RecQuizGuardarRequest, _: CurrentDocente):
     return svc.create_quiz(get_admin_client(), data)
 
 
+@router.get("/matriculas/{matricula_id}/quizzes", response_model=list[RecQuizPreguntasOut])
+def listar_quizzes(matricula_id: str, _: CurrentDocente):
+    """Lista todos los quizzes de una matrícula."""
+    return svc.list_quizzes(get_client(), matricula_id)
+
+
 @router.get("/matriculas/{matricula_id}/quiz", response_model=RecQuizPreguntasOut | None)
 def obtener_quiz_activo(matricula_id: str, _: CurrentDocente):
     """Obtiene el quiz activo (pendiente) de una matrícula."""

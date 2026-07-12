@@ -203,6 +203,20 @@ def create_quiz(db: Client, data: RecQuizGuardarRequest) -> RecQuizPreguntasOut:
         raise supabase_error(exc)
 
 
+def list_quizzes(db: Client, matricula_id: str) -> list[RecQuizPreguntasOut]:
+    try:
+        res = (
+            db.table(QUIZ_TABLE)
+            .select("*")
+            .eq("matricula_id", matricula_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return [RecQuizPreguntasOut(**r) for r in res.data]
+    except Exception as exc:
+        raise supabase_error(exc)
+
+
 def get_quiz_activo(db: Client, matricula_id: str) -> RecQuizPreguntasOut | None:
     try:
         res = (
