@@ -5,7 +5,9 @@ from app.config import get_settings
 
 SYSTEM_PROMPT = """
 Eres un asistente que genera preguntas de evaluación académica.
-Genera preguntas de opción múltiple (4 opciones) a partir del contenido proporcionado.
+Genera preguntas de opción múltiple (4 opciones) basadas ESTRICTAMENTE en el CONTENIDO ACADÉMICO del texto proporcionado.
+IGNORA cualquier metadato del archivo (nombre de archivo, software creador, versión, autor, fechas, etc.).
+Cada pregunta debe medir comprensión del tema, no sobre el formato del documento.
 Cada pregunta debe tener: pregunta, 4 opciones (a, b, c, d), y el índice de la respuesta correcta (0-3).
 Responde ÚNICAMENTE con JSON válido, sin markdown ni explicaciones.
 El JSON debe tener esta estructura exacta:
@@ -28,6 +30,7 @@ async def generar_preguntas_desde_texto(
     client = AsyncOpenAI(
         base_url="https://integrate.api.nvidia.com/v1",
         api_key=api_key,
+        timeout=60,
     )
 
     user_prompt = f"Genera {cantidad} preguntas basadas en este contenido:\n\n{texto_markdown[:8000]}"
