@@ -14,8 +14,9 @@ def listar_unidades(
     _: CurrentUser,
     programa_id: str | None = Query(None),
     semestre:    str | None = Query(None),
+    seccion:     str | None = Query(None),
 ):
-    return svc.list_unidades(get_client(), programa_id, semestre)
+    return svc.list_unidades(get_client(), programa_id, semestre, seccion)
 
 
 @router.get("/{id}", response_model=UnidadConPrograma)
