@@ -1,12 +1,33 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import json
 import time
+from datetime import date, datetime
+from typing import Any
 
 from app.config import get_settings
 from app.routers import periodos, programas, unidades, docentes, alumnos, asignaciones, asistencias, me, evaluaciones, gamificacion, recuperaciones
 
 settings = get_settings()
+
+# ── JSON encoder para fechas ────────────────────────────────────
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj: Any) -> str:
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
+        return super().default(obj)
+
+class SalleJSONResponse(JSONResponse):
+    def render(self, content: Any) -> bytes:
+        return json.dumps(
+            content,
+            cls=CustomJSONEncoder,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+        ).encode("utf-8")
 
 app = FastAPI(
     title="Sistema de Asistencia — API",
@@ -18,6 +39,7 @@ app = FastAPI(
     version=settings.app_version,
     docs_url="/docs",
     redoc_url="/redoc",
+    default_response_class=SalleJSONResponse,
 )
 app.router.redirect_slashes = True
 

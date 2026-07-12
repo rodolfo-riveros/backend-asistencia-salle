@@ -127,3 +127,12 @@ async def generar_preguntas(data: GenerarPreguntasRequest, _: CurrentDocente):
             data.texto_markdown, data.cantidad
         )
         return GenerarPreguntasResponse(preguntas=preguntas, fuente="gemini")
+
+
+@router.post("/evaluaciones/generar-preguntas-forzar-gemini", response_model=GenerarPreguntasResponse)
+async def generar_preguntas_forzar_gemini(data: GenerarPreguntasRequest, _: CurrentDocente):
+    """Usa Gemini directo, saltando NVIDIA."""
+    preguntas = await gemini_svc.generar_preguntas_desde_texto(
+        data.texto_markdown, data.cantidad
+    )
+    return GenerarPreguntasResponse(preguntas=preguntas, fuente="gemini")
