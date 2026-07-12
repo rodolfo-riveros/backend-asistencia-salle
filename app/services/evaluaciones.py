@@ -240,10 +240,26 @@ def create_evaluacion(db: Client, data: EvaluacionCreate) -> EvaluacionOut:
 
 def get_evaluacion(db: Client, id: str) -> EvaluacionOut:
     try:
-        res = db.table(EVAL_TABLE).select("*").eq("id", id).single().execute()
+        res = (
+            db.table(EVAL_TABLE)
+            .select("""
+                *,
+                indicadores_logro!left (
+                    codigo, descripcion, peso_porcentaje
+                )
+            """)
+            .eq("id", id)
+            .single()
+            .execute()
+        )
         if not res.data:
             raise not_found("Evaluación", id)
-        return EvaluacionOut(**res.data)
+        row = res.data
+        ind = row.get("indicadores_logro") or {}
+        row["indicador_codigo"] = ind.get("codigo")
+        row["indicador_desc"] = ind.get("descripcion")
+        row["indicador_peso"] = ind.get("peso_porcentaje")
+        return EvaluacionOut(**row)
     except Exception as exc:
         raise supabase_error(exc)
 

@@ -11,7 +11,7 @@ class AlumnoBase(BaseModel):
 
 
 class AlumnoCreate(AlumnoBase):
-    seccion: str = Field("U", min_length=1, max_length=10)
+    pass
 
 
 class AlumnoUpdate(BaseModel):
@@ -30,4 +30,3 @@ class AlumnoOut(AlumnoBase):
 
 class AlumnoConPrograma(AlumnoOut):
     programa_nombre: str | None = None
-    seccion:         str | None = Field("U", min_length=1, max_length=10)

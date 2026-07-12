@@ -14,9 +14,8 @@ def listar_unidades(
     _: CurrentUser,
     programa_id: str | None = Query(None),
     semestre:    str | None = Query(None),
-    seccion:     str | None = Query(None),     # ← nuevo
 ):
-    return svc.list_unidades(get_client(), programa_id, semestre, seccion)
+    return svc.list_unidades(get_client(), programa_id, semestre)
 
 
 @router.get("/{id}", response_model=UnidadConPrograma)
@@ -28,9 +27,8 @@ def obtener_unidad(id: str, _: CurrentUser):
 def alumnos_de_unidad(
     id: str,
     _: CurrentUser,
-    seccion: str | None = Query(None),          # ← nuevo
 ):
-    return alumnos_svc.list_alumnos_por_unidad(get_client(), id, seccion)
+    return alumnos_svc.list_alumnos_por_unidad(get_client(), id)
 
 
 @router.post("/", response_model=UnidadOut, status_code=201)

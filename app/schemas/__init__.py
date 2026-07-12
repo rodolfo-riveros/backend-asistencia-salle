@@ -6,6 +6,11 @@ from app.schemas.docentes   import DocenteCreate, DocenteUpdate, DocenteOut
 from app.schemas.alumnos    import (
     AlumnoCreate, AlumnoUpdate, AlumnoOut, AlumnoConPrograma
 )
+from app.schemas.recuperaciones import (
+    RecEstudianteCreate, RecEstudianteUpdate, RecEstudianteOut,
+    RecMatriculaCreate, RecMatriculaOut,
+    RecEvaluacionCreate, RecEvaluacionOut,
+)
 from app.schemas.asistencias import (
     AsignacionCreate, AsignacionUpdate, AsignacionOut, AsignacionDetalle,
     AsistenciaCreate, AsistenciaUpdate, AsistenciaOut, AsistenciaUpsert,

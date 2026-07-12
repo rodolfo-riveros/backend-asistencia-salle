@@ -16,7 +16,6 @@ class UnidadBase(BaseModel):
     nombre:      str          = Field(..., min_length=2, max_length=200)
     programa_id: UUID
     semestre:    SemestreEnum
-    seccion:     str          = Field("U", min_length=1, max_length=10)  # ← nuevo
 
 
 class UnidadCreate(UnidadBase):
@@ -26,7 +25,6 @@ class UnidadCreate(UnidadBase):
 class UnidadUpdate(BaseModel):
     nombre:   str | None          = Field(None, min_length=2, max_length=200)
     semestre: SemestreEnum | None = None
-    seccion:  str | None          = Field(None, min_length=1, max_length=10)  # ← nuevo
 
 
 class UnidadOut(UnidadBase):

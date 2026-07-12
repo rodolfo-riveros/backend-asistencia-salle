@@ -12,7 +12,13 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_version: str = "1.0.0"
 
-    # CORS - Asegúrate de que en el .env diga ALLOWED_ORIGINS
+    # NVIDIA
+    nvidia_api_key: str = ""
+
+    # Gemini
+    gemini_api_key: str = ""
+
+    # CORS
     allowed_origins: str = "*"
 
     @property

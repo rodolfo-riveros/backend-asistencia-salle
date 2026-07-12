@@ -14,8 +14,7 @@ def _fetch_alumno_con_programa(db: Client, q) -> list[AlumnoConPrograma]:
     res = q.execute()
     results = []
     for r in res.data:
-        row = {k: v for k, v in r.items() if k != "programas_estudio"}
-        row.setdefault("seccion", "U")
+        row = {k: v for k, v in r.items() if k not in ("programas_estudio", "seccion")}
         results.append(AlumnoConPrograma(
             **row,
             programa_nombre=r.get("programas_estudio", {}).get("nombre"),
@@ -28,10 +27,8 @@ def list_alumnos(
     programa_id: str | None = None,
     semestre: str | None = None,
     search: str | None = None,
-    seccion: str | None = None,
 ) -> list[AlumnoConPrograma]:
     try:
-        # Usar la vista que incluye ultima seccion desde matriculas
         q = db.table("v_alumnos_listado").select(
             "*, programas_estudio(nombre)"
         ).order("nombre")
@@ -39,8 +36,6 @@ def list_alumnos(
             q = q.eq("programa_id", programa_id)
         if semestre:
             q = q.eq("semestre", semestre)
-        if seccion:
-            q = q.eq("seccion", seccion)
         if search:
             q = q.ilike("nombre", f"%{search}%")
         return _fetch_alumno_con_programa(db, q)
@@ -82,27 +77,24 @@ def get_alumno_by_dni(db: Client, dni: str) -> AlumnoConPrograma:
 
 def create_alumno(db: Client, data: AlumnoCreate) -> AlumnoOut:
     try:
-        seccion = data.seccion
-
         # 1a. Verificar si ya existe por DNI
         existing = db.table(TABLE).select("id").eq("dni", data.dni).limit(1).execute()
         if existing.data:
             alumno_id = existing.data[0]["id"]
         else:
-            # 1b. Crear alumno en el padron maestro (sin seccion)
-            payload = data.model_dump(exclude={"seccion"})
+            # 1b. Crear alumno en el padron maestro
+            payload = data.model_dump()
             payload["programa_id"] = str(payload["programa_id"])
             res = db.table(TABLE).insert(payload).execute()
             alumno_id = res.data[0]["id"]
 
-        # 2. Crear matricula con la seccion
+        # 2. Crear matricula
         periodo_id = _periodo_activo(db)
         matricula_payload = {
             "alumno_id": alumno_id,
             "periodo_id": periodo_id,
             "programa_id": str(data.programa_id),
             "semestre": data.semestre.value,
-            "seccion": seccion,
         }
         db.table("matriculas").insert(matricula_payload).execute()
 
@@ -140,16 +132,13 @@ def delete_alumno(db: Client, id: str) -> None:
 def list_alumnos_por_unidad(
     db: Client,
     unidad_id: str,
-    seccion: str | None = None,
 ) -> list[AlumnoConPrograma]:
     try:
         q = (
             db.table("v_alumnos_por_unidad")
-            .select("alumno_id, alumno_nombre, dni, semestre, programa_id, programa_nombre, seccion")
+            .select("alumno_id, alumno_nombre, dni, semestre, programa_id, programa_nombre")
             .eq("unidad_id", unidad_id)
         )
-        if seccion:
-            q = q.eq("seccion", seccion)
         res = q.order("alumno_nombre").execute()
         return [
             AlumnoConPrograma(
@@ -159,7 +148,6 @@ def list_alumnos_por_unidad(
                 semestre=r["semestre"],
                 programa_id=r["programa_id"],
                 programa_nombre=r["programa_nombre"],
-                seccion=r.get("seccion", "U"),
             )
             for r in res.data
         ]
