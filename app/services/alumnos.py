@@ -260,3 +260,60 @@ def promover_salon(
         raise
     except Exception as exc:
         raise supabase_error(exc)
+
+
+def reparar_matriculas(
+    db: Client,
+    programa_id: str | None = None,
+) -> dict:
+    """Asegura que cada alumno del padrón tenga matrícula en el período activo con su semestre actual."""
+    try:
+        periodo_activo = _periodo_activo(db)
+        if not periodo_activo:
+            raise bad_request("No hay un período académico activo")
+
+        q = db.table(TABLE).select("id, programa_id, semestre")
+        if programa_id:
+            q = q.eq("programa_id", str(programa_id))
+        res = q.execute()
+        if not res.data:
+            raise bad_request("No hay alumnos en el padrón")
+
+        alumno_ids = [r["id"] for r in res.data]
+
+        existing = (
+            db.table("matriculas")
+            .select("alumno_id")
+            .eq("periodo_id", periodo_activo)
+            .in_("alumno_id", alumno_ids)
+            .execute()
+        )
+        existentes = {r["alumno_id"] for r in existing.data}
+
+        # Agrupar por (programa_id, semestre) para operar en lote
+        por_grupo: dict[tuple[str, str], list[str]] = {}
+        for r in res.data:
+            por_grupo.setdefault((str(r["programa_id"]), str(r["semestre"])), []).append(r["id"])
+
+        creados = 0
+        actualizados = 0
+        for (pid, sem), ids in por_grupo.items():
+            payload = {"periodo_id": periodo_activo, "programa_id": pid, "semestre": sem}
+            actualizables = [i for i in ids if i in existentes]
+            if actualizables:
+                db.table("matriculas").update(
+                    payload
+                ).eq("periodo_id", periodo_activo).in_("alumno_id", actualizables).execute()
+                actualizados += len(actualizables)
+            nuevos = [i for i in ids if i not in existentes]
+            if nuevos:
+                db.table("matriculas").insert(
+                    [{"alumno_id": i, **payload} for i in nuevos]
+                ).execute()
+                creados += len(nuevos)
+
+        return {"creados": creados, "actualizados": actualizados}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise supabase_error(exc)

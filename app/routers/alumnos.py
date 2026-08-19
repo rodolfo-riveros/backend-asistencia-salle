@@ -14,6 +14,15 @@ def promover_salon(data: PromoverSalonRequest, _: CurrentAdmin):
     """Promueve masivamente a todo un salón (programa + semestre) al siguiente semestre."""
     return svc.promover_salon(get_admin_client(), data)
 
+
+@router.post("/repair-matriculas")
+def reparar_matriculas(
+    _: CurrentAdmin,
+    programa_id: str | None = Query(None),
+):
+    """Sincroniza la matrícula del período activo con el semestre actual de cada alumno del padrón."""
+    return svc.reparar_matriculas(get_admin_client(), programa_id)
+
 @router.get("/publico/{dni}", response_model=AlumnoConPrograma, summary="Buscar alumno por DNI (sin login)")
 def buscar_alumno_publico(dni: str):
     return svc.get_alumno_by_dni(get_client(), dni)
