@@ -36,7 +36,7 @@ async def generar_preguntas_desde_texto(
     user_prompt = f"Genera {cantidad} preguntas basadas en este contenido:\n\n{texto_markdown[:8000]}"
 
     completion = await client.chat.completions.create(
-        model="deepseek-ai/deepseek-v4-pro",
+        model="deepseek-ai/deepseek-v4-flash",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
@@ -44,7 +44,6 @@ async def generar_preguntas_desde_texto(
         temperature=1,
         top_p=0.95,
         max_tokens=16384,
-        extra_body={"chat_template_kwargs": {"thinking": False}},
     )
 
     content = completion.choices[0].message.content

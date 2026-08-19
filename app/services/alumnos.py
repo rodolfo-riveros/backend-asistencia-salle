@@ -1,6 +1,9 @@
 from supabase import Client
-from app.schemas import AlumnoCreate, AlumnoUpdate, AlumnoOut, AlumnoConPrograma
-from app.exceptions import not_found, supabase_error
+from fastapi import HTTPException
+from app.schemas import (
+    AlumnoCreate, AlumnoUpdate, AlumnoOut, AlumnoConPrograma, PromoverSalonRequest,
+)
+from app.exceptions import not_found, supabase_error, bad_request
 
 TABLE = "alumnos"
 
@@ -151,5 +154,50 @@ def list_alumnos_por_unidad(
             )
             for r in res.data
         ]
+    except Exception as exc:
+        raise supabase_error(exc)
+
+
+def promover_salon(
+    db: Client,
+    data: PromoverSalonRequest,
+) -> dict:
+    """Promueve masivamente todo un salón (programa + semestre) al siguiente semestre."""
+    try:
+        if data.semestre_actual == data.semestre_nuevo:
+            raise bad_request("El semestre actual y el nuevo no pueden ser iguales")
+
+        # 1. Contar alumnos que serán promovidos
+        res = (
+            db.table(TABLE)
+            .select("id")
+            .eq("programa_id", str(data.programa_id))
+            .eq("semestre", data.semestre_actual.value)
+            .execute()
+        )
+        if not res.data:
+            raise bad_request(
+                f"No hay alumnos en semestre {data.semestre_actual.value} para el programa seleccionado"
+            )
+
+        alumno_ids = [r["id"] for r in res.data]
+
+        # 2. Actualizar semestre en el padrón maestro
+        db.table(TABLE).update(
+            {"semestre": data.semestre_nuevo.value}
+        ).in_("id", alumno_ids).execute()
+
+        # 3. Actualizar también las matrículas del período activo
+        periodo_activo = _periodo_activo(db)
+        if periodo_activo:
+            db.table("matriculas").update(
+                {"semestre": data.semestre_nuevo.value}
+            ).in_("alumno_id", alumno_ids).eq(
+                "periodo_id", periodo_activo
+            ).execute()
+
+        return {"promovidos": len(alumno_ids)}
+    except HTTPException:
+        raise
     except Exception as exc:
         raise supabase_error(exc)

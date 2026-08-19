@@ -16,7 +16,17 @@ def listar_periodos(_: CurrentUser):
 @router.post("/", status_code=201)
 def crear_periodo(data: dict, _: CurrentAdmin):
     client = get_admin_client()
+    if data.get("es_activo"):
+        client.table("periodos_academicos").update({"es_activo": False}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
     response = client.table("periodos_academicos").insert(data).execute()
+    return response.data[0]
+
+@router.patch("/{id}")
+def actualizar_periodo(id: str, data: dict, _: CurrentAdmin):
+    client = get_admin_client()
+    if data.get("es_activo") is True:
+        client.table("periodos_academicos").update({"es_activo": False}).neq("id", id).execute()
+    response = client.table("periodos_academicos").update(data).eq("id", id).execute()
     return response.data[0]
 
 @router.delete("/{id}", status_code=204)

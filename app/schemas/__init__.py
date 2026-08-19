@@ -4,7 +4,7 @@ from app.schemas.unidades   import (
 )
 from app.schemas.docentes   import DocenteCreate, DocenteUpdate, DocenteOut
 from app.schemas.alumnos    import (
-    AlumnoCreate, AlumnoUpdate, AlumnoOut, AlumnoConPrograma
+    AlumnoCreate, AlumnoUpdate, AlumnoOut, AlumnoConPrograma, PromoverSalonRequest
 )
 from app.schemas.recuperaciones import (
     RecEstudianteCreate, RecEstudianteUpdate, RecEstudianteOut,

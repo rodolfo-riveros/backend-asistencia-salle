@@ -21,6 +21,13 @@ class AlumnoUpdate(BaseModel):
     dni:         str | None          = Field(None, min_length=8, max_length=15)
 
 
+class PromoverSalonRequest(BaseModel):
+    """Promueve masivamente a todo un salón al siguiente semestre."""
+    programa_id:     UUID
+    semestre_actual: SemestreEnum
+    semestre_nuevo:  SemestreEnum
+
+
 class AlumnoOut(AlumnoBase):
     id: UUID
 

@@ -1,10 +1,18 @@
 from fastapi import APIRouter, Query
 from app.auth import CurrentAdmin, CurrentUser
 from app.database import get_admin_client, get_client
-from app.schemas import AlumnoCreate, AlumnoUpdate, AlumnoOut, AlumnoConPrograma
+from app.schemas import (
+    AlumnoCreate, AlumnoUpdate, AlumnoOut, AlumnoConPrograma, PromoverSalonRequest,
+)
 import app.services.alumnos as svc
 
 router = APIRouter(prefix="/alumnos", tags=["Alumnos"])
+
+
+@router.post("/promover-salon")
+def promover_salon(data: PromoverSalonRequest, _: CurrentAdmin):
+    """Promueve masivamente a todo un salón (programa + semestre) al siguiente semestre."""
+    return svc.promover_salon(get_admin_client(), data)
 
 @router.get("/publico/{dni}", response_model=AlumnoConPrograma, summary="Buscar alumno por DNI (sin login)")
 def buscar_alumno_publico(dni: str):
