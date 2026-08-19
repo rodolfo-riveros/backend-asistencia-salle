@@ -38,7 +38,8 @@ def create_asignacion(db: Client, data: AsignacionCreate) -> AsignacionOut:
 def list_asignaciones(
     db: Client, 
     docente_id: str | None = None, 
-    periodo_nombre: str | None = None
+    periodo_id: str | None = None,
+    periodo_nombre: str | None = None,
 ) -> list[AsignacionDetalle]:
     """Lista asignaciones con filtros opcionales"""
     try:
@@ -59,6 +60,8 @@ def list_asignaciones(
         
         if docente_id:
             query = query.eq("docente_id", docente_id)
+        if periodo_id:
+            query = query.eq("periodo_id", periodo_id)
         
         res = query.execute()
         

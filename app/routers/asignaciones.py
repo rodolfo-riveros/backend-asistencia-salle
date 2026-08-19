@@ -13,7 +13,7 @@ def listar_asignaciones(
     docente_id: str | None = Query(None),
     periodo:    str | None = Query(None, description="Ej: 2025-I"),
 ):
-    return svc.list_asignaciones(get_client(), docente_id, periodo)
+    return svc.list_asignaciones(get_client(), docente_id, periodo_nombre=periodo)
 
 
 @router.get("/{id}", response_model=AsignacionDetalle)

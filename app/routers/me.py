@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from app.auth import CurrentDocente
 from app.database import get_client
 from app.schemas import DocenteOut, AsignacionDetalle, AlumnoConPrograma
@@ -18,10 +18,10 @@ def mi_perfil(docente: CurrentDocente):
 @router.get("/asignaciones", response_model=list[AsignacionDetalle])
 def mis_asignaciones(
     docente: CurrentDocente,
-    periodo: str | None = None,
+    periodo_id: str | None = Query(None),
 ):
-    """Lista las unidades asignadas al docente autenticado, opcionalmente filtradas por periodo."""
-    return asig_svc.list_asignaciones(get_client(), docente.sub, periodo)
+    """Lista las unidades asignadas al docente autenticado, filtradas por periodo."""
+    return asig_svc.list_asignaciones(get_client(), docente.sub, periodo_id=periodo_id)
 
 
 @router.get("/unidades/{unidad_id}/alumnos", response_model=list[AlumnoConPrograma])

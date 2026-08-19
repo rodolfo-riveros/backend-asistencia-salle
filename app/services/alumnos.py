@@ -13,6 +13,37 @@ def _periodo_activo(db: Client) -> str | None:
     return res.data[0]["id"] if res.data else None
 
 
+def _sincronizar_matricula(
+    db: Client,
+    alumno_id: str,
+    programa_id: str,
+    semestre: str,
+) -> None:
+    """Asegura que el alumno tenga una matrícula en el período activo con el semestre indicado."""
+    periodo_activo = _periodo_activo(db)
+    if not periodo_activo:
+        return
+
+    existing = (
+        db.table("matriculas")
+        .select("id")
+        .eq("alumno_id", alumno_id)
+        .eq("periodo_id", periodo_activo)
+        .limit(1)
+        .execute()
+    )
+
+    payload = {
+        "periodo_id": periodo_activo,
+        "programa_id": str(programa_id),
+        "semestre": semestre,
+    }
+    if existing.data:
+        db.table("matriculas").update(payload).eq("id", existing.data[0]["id"]).execute()
+    else:
+        db.table("matriculas").insert({"alumno_id": alumno_id, **payload}).execute()
+
+
 def _fetch_alumno_con_programa(db: Client, q) -> list[AlumnoConPrograma]:
     res = q.execute()
     results = []
@@ -112,12 +143,18 @@ def update_alumno(db: Client, id: str, data: AlumnoUpdate) -> AlumnoOut:
     payload = data.model_dump(exclude_none=True)
     if "programa_id" in payload:
         payload["programa_id"] = str(payload["programa_id"])
+    if "semestre" in payload:
+        payload["semestre"] = payload["semestre"].value
     if not payload:
         return get_alumno(db, id)
     try:
         res = db.table(TABLE).update(payload).eq("id", id).execute()
         if not res.data:
             raise not_found("Alumno", id)
+        # Mantener la matrícula del período activo sincronizada con el nuevo semestre
+        if "semestre" in payload:
+            programa_id = payload.get("programa_id") or res.data[0].get("programa_id")
+            _sincronizar_matricula(db, id, programa_id, payload["semestre"])
         return AlumnoOut(**res.data[0])
     except Exception as exc:
         raise supabase_error(exc)
@@ -187,14 +224,36 @@ def promover_salon(
             {"semestre": data.semestre_nuevo.value}
         ).in_("id", alumno_ids).execute()
 
-        # 3. Actualizar también las matrículas del período activo
+        # 3. Asegurar matrícula en el período activo con el semestre nuevo
         periodo_activo = _periodo_activo(db)
         if periodo_activo:
-            db.table("matriculas").update(
-                {"semestre": data.semestre_nuevo.value}
-            ).in_("alumno_id", alumno_ids).eq(
-                "periodo_id", periodo_activo
-            ).execute()
+            existing = (
+                db.table("matriculas")
+                .select("alumno_id")
+                .eq("periodo_id", periodo_activo)
+                .in_("alumno_id", alumno_ids)
+                .execute()
+            )
+            existentes = {r["alumno_id"] for r in existing.data}
+
+            # Actualizar matrículas del período activo ya existentes
+            if existentes:
+                db.table("matriculas").update(
+                    {"semestre": data.semestre_nuevo.value}
+                ).eq("periodo_id", periodo_activo).in_("alumno_id", list(existentes)).execute()
+
+            # Crear matrícula nueva para quienes no la tienen en el período activo
+            nuevos = [aid for aid in alumno_ids if aid not in existentes]
+            if nuevos:
+                db.table("matriculas").insert([
+                    {
+                        "alumno_id": aid,
+                        "periodo_id": periodo_activo,
+                        "programa_id": str(data.programa_id),
+                        "semestre": data.semestre_nuevo.value,
+                    }
+                    for aid in nuevos
+                ]).execute()
 
         return {"promovidos": len(alumno_ids)}
     except HTTPException:
