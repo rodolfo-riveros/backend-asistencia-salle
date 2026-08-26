@@ -295,9 +295,8 @@ def update_evaluacion(db: Client, id: str, data: EvaluacionUpdate) -> Evaluacion
 
 
 def delete_evaluacion(db: Client, id: str) -> None:
-    cals = db.table(CAL_TABLE).select("id").eq("evaluacion_id", id).limit(1).execute()
-    if cals.data:
-        raise bad_request("No se puede eliminar porque ya tiene calificaciones.")
+    # Los registros asociados (calificaciones, grupos, integrantes) se eliminan
+    # automáticamente por ON DELETE CASCADE en la base de datos.
     try:
         res = db.table(EVAL_TABLE).delete().eq("id", id).execute()
         if not res.data:

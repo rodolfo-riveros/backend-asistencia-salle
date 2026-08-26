@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.auth import CurrentDocente, CurrentUser, CurrentAdmin
+from app.auth import CurrentDocente, CurrentUser
 from app.database import get_client
 from app.schemas.evaluaciones import (
     IndicadorCreate, IndicadorUpdate, IndicadorOut,
@@ -127,7 +127,7 @@ def update_evaluacion(id: str, data: EvaluacionUpdate, _: CurrentDocente):
 
 
 @router.delete("/{id}", status_code=204)
-def delete_evaluacion(id: str, _: CurrentAdmin):
+def delete_evaluacion(id: str, _: CurrentDocente):
     svc.delete_evaluacion(get_client(), id)
 
 
